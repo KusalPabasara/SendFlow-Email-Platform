@@ -3,6 +3,7 @@ import Papa from 'papaparse';
 import { Mail, Upload, Settings, Users, Send, FileText, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 function App() {
+  const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
   const [activeTab, setActiveTab] = useState('config');
 
   // App State
@@ -72,7 +73,7 @@ function App() {
     });
 
     try {
-      const response = await fetch('http://localhost:3001/api/send', {
+      const response = await fetch(`${API_BASE}/send`, {
         method: 'POST',
         body: formData,
       });
@@ -94,7 +95,7 @@ function App() {
   const pollStatus = async (id) => {
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`http://localhost:3001/api/status/${id}`);
+        const response = await fetch(`${API_BASE}/status/${id}`);
         const data = await response.json();
 
         setProgress({
