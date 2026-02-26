@@ -38,6 +38,11 @@ jobs:
             npm run build
             cd ..
             
+            # Sync to Nginx
+            mkdir -p /var/www/email-platform
+            cp -r frontend/dist/* /var/www/email-platform/
+            chown -R www-data:www-data /var/www/email-platform
+            
             # Setup Backend
             cd backend
             npm install
