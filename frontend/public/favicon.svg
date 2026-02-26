@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="mailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="256" height="256" rx="64" fill="#0f172a" />
+  
+  <!-- Mail Icon -->
+  <g transform="translate(48, 64)" filter="url(#glow)">
+    <!-- Envelope Base -->
+    <path d="M16 24 C16 15.163 23.163 8 32 8 L128 8 C136.837 8 144 15.163 144 24 L144 104 C144 112.837 136.837 120 128 120 L32 120 C23.163 120 16 112.837 16 104 Z" fill="url(#mailGrad)" />
+    
+    <!-- Envelope Flap (Top) -->
+    <path d="M16 24 L80 72 L144 24" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+    
+    <!-- Envelope Lines (Bottom) -->
+    <path d="M16 104 L64 68 M144 104 L96 68" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
+  </g>
+  
+  <!-- Sparkles/Stars -->
+  <circle cx="190" cy="50" r="8" fill="#a78bfa" />
+  <circle cx="210" cy="80" r="5" fill="#60a5fa" />
+  <circle cx="45" cy="180" r="6" fill="#818cf8" />
+</svg>
