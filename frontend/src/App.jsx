@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
-import { Mail, Upload, Settings, Users, Send, FileText, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Upload, Settings, Users, Send, FileText, CheckCircle, XCircle, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 
 function App() {
   const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
@@ -8,6 +8,7 @@ function App() {
 
   // App State
   const [config, setConfig] = useState({ smtpUser: '', smtpPass: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [recipients, setRecipients] = useState([]);
   const [template, setTemplate] = useState({ subject: 'Your Certificate', body: 'Hello {{name}},\n\nPlease find your certificate attached.\n\nBest regards,\nThe Team' });
   const [attachments, setAttachments] = useState([]);
@@ -157,7 +158,12 @@ function App() {
               </div>
               <div className="form-group">
                 <label className="form-label">App Password</label>
-                <input type="password" name="smtpPass" className="form-input" placeholder="16-character app password" value={config.smtpPass} onChange={handleConfigChange} />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type={showPassword ? "text" : "password"} name="smtpPass" className="form-input" placeholder="16-character app password" value={config.smtpPass} onChange={handleConfigChange} />
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowPassword(!showPassword)} title="Toggle Password Visibility">
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             </div>
           )}
