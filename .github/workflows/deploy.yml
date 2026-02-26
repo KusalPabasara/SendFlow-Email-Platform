@@ -13,13 +13,13 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 152.42.185.253
-          username: kusal # Using your username instead of root
+          username: root 
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            # Navigate to the project directory or create it safely
-            mkdir -p ~/projects/email-platform
-            cd ~/projects/email-platform
+            # Navigate to the project directory
+            mkdir -p /root/projects/email-platform
+            cd /root/projects/email-platform
             
             # Since git clone via HTTPS might be problematic without tokens, 
             # we will just pull if exists, else clone
