@@ -6,10 +6,12 @@ async function sendEmails(config, recipients, attachments, subjectTemplate, body
     const { smtpUser, smtpPass } = config;
 
     const transporter = nodemailer.createTransport({
-        service: 'gmail', // Standardizing on Gmail as per requirements
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
             user: smtpUser,
-            pass: smtpPass,
+            pass: (smtpPass || '').replace(/\s+/g, ''), // Strip spaces automatically
         },
     });
 

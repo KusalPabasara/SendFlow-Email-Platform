@@ -150,7 +150,7 @@ function App() {
           {activeTab === 'config' && (
             <div className="animate-fade-in">
               <h2 className="mb-4">SMTP Configuration</h2>
-              <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>Enter your Gmail credentials. Please use an <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>App Password</a>, not your main password.</p>
+              <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>Enter your Gmail credentials. Please use an <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>App Password</a>, not your main password. <br /><span style={{ fontSize: '0.85rem', color: 'var(--accent)' }}>Note: You can paste the App Password with spaces (e.g., <code>saal toem irwr hssj</code>) — we will automatically format it for you.</span></p>
               <div className="form-group">
                 <label className="form-label">Gmail Address</label>
                 <input type="email" name="smtpUser" className="form-input" placeholder="you@gmail.com" value={config.smtpUser} onChange={handleConfigChange} />
