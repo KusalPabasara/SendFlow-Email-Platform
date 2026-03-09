@@ -1,4 +1,4 @@
-name: Deploy to DigitalOcean VPS
+name: Deploy to AWS
 
 on:
   push:
@@ -12,44 +12,42 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 152.42.185.253
-          username: root 
+          host: 13.51.201.110
+          username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
             # Navigate to the project directory
-            mkdir -p /root/projects/email-platform
-            cd /root/projects/email-platform
-            
-            # Since git clone via HTTPS might be problematic without tokens, 
-            # we will just pull if exists, else clone
+            mkdir -p /home/ubuntu/projects/email-platform
+            cd /home/ubuntu/projects/email-platform
+
+            # Pull latest or clone
             if [ -d ".git" ]; then
               git pull origin main
             else
               git clone https://github.com/${{ github.repository }}.git .
             fi
-            
+
             # Install Root Dependencies
             npm install
-            
+
             # Build Frontend
             cd frontend
             npm install
             npm run build
             cd ..
-            
+
             # Sync to Nginx
-            mkdir -p /var/www/email-platform
-            cp -r frontend/dist/* /var/www/email-platform/
-            chown -R www-data:www-data /var/www/email-platform
-            
+            sudo mkdir -p /var/www/email-platform
+            sudo cp -r frontend/dist/* /var/www/email-platform/
+            sudo chown -R www-data:www-data /var/www/email-platform
+
             # Setup Backend
             cd backend
             npm install
-            
+
             # Restart or start the PM2 process for backend
-            # Make sure you have installed pm2 globally: npm install pm2 -g
             pm2 restart email-backend || pm2 start index.js --name email-backend
-            
+
             # Save PM2 process list
             pm2 save
