@@ -3,7 +3,7 @@ import Papa from 'papaparse';
 import { Mail, Upload, Settings, Users, Send, FileText, CheckCircle, XCircle, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 
 function App() {
-  const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
   const [activeTab, setActiveTab] = useState('config');
 
   // App State
