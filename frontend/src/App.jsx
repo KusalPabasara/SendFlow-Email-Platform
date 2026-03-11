@@ -26,7 +26,7 @@ function App() {
   // ── Feedback mode state ───────────────────────────────────────
   const [fbActiveTab, setFbActiveTab] = useState('fb-smtp');
   const [fbRecipients, setFbRecipients] = useState([]);
-  const [fbSubject, setFbSubject] = useState('Proposal Review: {{name}}');
+  const [fbSubject, setFbSubject] = useState('Rysera STEM AI course final project evaluation');
   const [fbIsSending, setFbIsSending] = useState(false);
   const [fbProgress, setFbProgress] = useState(null);
   const [fbSendingGroup, setFbSendingGroup] = useState(null); // 'declined' | 'approved'
@@ -128,7 +128,7 @@ function App() {
     if (list.length === 0) { alert(`No ${group} proposals found in the uploaded CSV.`); return; }
 
     const label = group === 'declined' ? 'DECLINED' : 'APPROVED';
-    const bodyTemplate = `${label}\n\nDear {{name}},\n\nScore: {{score}}\n\n{{feedback}}`;
+    const bodyTemplate = `${label}\n\nDear {{name}},\n\nRysera STEM AI course final evaluation is here for your submitted proposal.\n\nScore: {{score}}\n\n{{feedback}}\n\n---\nRegards,\nCourse Instructor Kusal\nFor further details: 0787720767`;
 
     setFbSendingGroup(group);
     setFbIsSending(true);
