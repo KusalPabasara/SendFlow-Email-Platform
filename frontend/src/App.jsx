@@ -128,7 +128,7 @@ function App() {
     if (list.length === 0) { alert(`No ${group} proposals found in the uploaded CSV.`); return; }
 
     const label = group === 'declined' ? 'DECLINED' : 'APPROVED';
-    const bodyTemplate = `${label}\n\nDear {{name}},\n\nRysera STEM AI course final evaluation is here for your submitted proposal.\n\nScore: {{score}}\n\n{{feedback}}\n\n---\nRegards,\nCourse Instructor Kusal\nFor further details: 0787720767`;
+    const bodyTemplate = `${label}\n\nDear {{name}},\n\nRysera STEM AI course final evaluation is here for your submitted proposal.\n\nScore: {{score}}\n\n{{feedback}}\n\n---\nRegards,\nRysera STEM\nFor further details: 0787720767`;
 
     setFbSendingGroup(group);
     setFbIsSending(true);
