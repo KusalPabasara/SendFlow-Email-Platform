@@ -128,7 +128,7 @@ function App() {
     if (list.length === 0) { alert(`No ${group} proposals found in the uploaded CSV.`); return; }
 
     const label = group === 'declined' ? 'DECLINED' : 'APPROVED';
-    const bodyTemplate = `${label}\n\nDear {{name}},\n\n{{feedback}}`;
+    const bodyTemplate = `${label}\n\nDear {{name}},\n\nScore: {{score}}\n\n{{feedback}}`;
 
     setFbSendingGroup(group);
     setFbIsSending(true);
@@ -366,13 +366,14 @@ function App() {
                   <div style={{ background: 'rgba(99,102,241,0.1)', padding: '16px', borderRadius: '8px', borderLeft: '4px solid var(--accent)', marginBottom: '20px' }}>
                     <h4 style={{ marginBottom: '8px', color: 'var(--accent)' }}>CSV Format for Proposal Feedback:</h4>
                     <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                      Your CSV must have exactly these four columns (lowercase):<br />
-                      <strong>name, email, status, feedback</strong><br /><br />
-                      <strong>status</strong> must be either <code>approved</code> or <code>declined</code>.<br /><br />
+                      Your CSV must have exactly these five columns (lowercase):<br />
+                      <strong>name, email, status, score, feedback</strong><br /><br />
+                      <strong>status</strong> must be either <code>approved</code> or <code>declined</code>.<br />
+                      <strong>score</strong> is the numeric mark awarded (e.g. 78).<br /><br />
                       <em>Example:</em><br />
-                      name,email,status,feedback<br />
-                      Alice Smith,alice@test.com,approved,Great work! Your proposal is well-structured.<br />
-                      Bob Jones,bob@test.com,declined,Missing methodology section. Please revise.
+                      name,email,status,score,feedback<br />
+                      Alice Smith,alice@test.com,approved,85,Great work! Your proposal is well-structured.<br />
+                      Bob Jones,bob@test.com,declined,42,Missing methodology section. Please revise.
                     </p>
                   </div>
                   <div className="dropzone mb-4" onClick={() => fbCsvInputRef.current.click()}>
@@ -385,7 +386,7 @@ function App() {
                       <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                         <thead>
                           <tr>
-                            {['Name', 'Email', 'Status', 'Feedback'].map(h => (
+                            {['Name', 'Email', 'Status', 'Score', 'Feedback'].map(h => (
                               <th key={h} style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
@@ -404,6 +405,7 @@ function App() {
                                   {r.status || 'N/A'}
                                 </span>
                               </td>
+                              <td style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', textAlign: 'center', fontWeight: 600, color: 'var(--accent)' }}>{r.score ?? 'N/A'}</td>
                               <td style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.feedback || ''}</td>
                             </tr>
                           ))}
