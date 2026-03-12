@@ -1,12 +1,12 @@
 import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
-import { Mail, Upload, Settings, Users, Send, FileText, CheckCircle, XCircle, Loader2, Eye, EyeOff, MessageSquare, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Mail, Upload, Settings, Users, Send, FileText, CheckCircle, XCircle, Loader2, Eye, EyeOff, MessageSquare, ThumbsUp, ThumbsDown, EyeOff as NoAccessIcon } from 'lucide-react';
 
 function App() {
   const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
   // ── Mode ──────────────────────────────────────────────────────
-  const [mode, setMode] = useState('certificate'); // 'certificate' | 'feedback'
+  const [mode, setMode] = useState('certificate');
 
   // ── Shared SMTP state ─────────────────────────────────────────
   const [config, setConfig] = useState({ smtpUser: '', smtpPass: '' });
@@ -29,43 +29,41 @@ function App() {
   const [fbSubject, setFbSubject] = useState('Rysera STEM AI course final project evaluation');
   const [fbIsSending, setFbIsSending] = useState(false);
   const [fbProgress, setFbProgress] = useState(null);
-  const [fbSendingGroup, setFbSendingGroup] = useState(null); // 'declined' | 'approved'
+  const [fbSendingGroup, setFbSendingGroup] = useState(null);
+
+  // ── No Access tab state ───────────────────────────────────────
+  const [naRecipients, setNaRecipients] = useState([]);
+  const [naIsSending, setNaIsSending] = useState(false);
+  const [naProgress, setNaProgress] = useState(null);
 
   // ── Refs ──────────────────────────────────────────────────────
-  const fileInputRef = useRef(null);
-  const csvInputRef = useRef(null);
-  const fbCsvInputRef = useRef(null);
+  const fileInputRef   = useRef(null);
+  const csvInputRef    = useRef(null);
+  const fbCsvInputRef  = useRef(null);
+  const naCsvInputRef  = useRef(null);
 
   // ── Helpers ───────────────────────────────────────────────────
   const pollStatus = (id, setter, sendingSetter) => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/status/${id}`);
+        const res  = await fetch(`${API_BASE}/status/${id}`);
         const data = await res.json();
         setter(prev => ({ ...prev, current: data.progress, total: data.total, results: data.results, status: data.status }));
         if (data.status === 'completed' || data.status === 'failed') {
           clearInterval(interval);
           sendingSetter(false);
         }
-      } catch (err) {
-        console.error('Polling error', err);
-      }
+      } catch (err) { console.error('Polling error', err); }
     }, 1000);
   };
 
   // ── Certificate handlers ──────────────────────────────────────
-  const handleConfigChange = (e) => setConfig({ ...config, [e.target.name]: e.target.value });
-  const handleTemplateChange = (e) => setTemplate({ ...template, [e.target.name]: e.target.value });
+  const handleConfigChange    = (e) => setConfig({ ...config, [e.target.name]: e.target.value });
+  const handleTemplateChange  = (e) => setTemplate({ ...template, [e.target.name]: e.target.value });
 
   const handleCsvUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => setRecipients(results.data),
-      });
-    }
+    if (file) Papa.parse(file, { header: true, skipEmptyLines: true, complete: (r) => setRecipients(r.data) });
   };
 
   const handleCertificatesUpload = (e) => {
@@ -75,10 +73,8 @@ function App() {
   const sendBatch = async () => {
     if (!config.smtpUser || !config.smtpPass) { alert('Please provide SMTP credentials.'); setActiveTab('config'); return; }
     if (recipients.length === 0) { alert('Please provide recipients.'); setActiveTab('recipients'); return; }
-
     setIsSending(true);
     setProgress({ current: 0, total: recipients.length, results: [] });
-
     const formData = new FormData();
     formData.append('smtpUser', config.smtpUser);
     formData.append('smtpPass', config.smtpPass);
@@ -86,20 +82,12 @@ function App() {
     formData.append('bodyTemplate', template.body);
     formData.append('recipients', JSON.stringify(recipients));
     attachments.forEach(f => formData.append('attachments', f));
-
     try {
-      const res = await fetch(`${API_BASE}/send`, { method: 'POST', body: formData });
+      const res  = await fetch(`${API_BASE}/send`, { method: 'POST', body: formData });
       const data = await res.json();
-      if (res.ok && data.jobId) {
-        pollStatus(data.jobId, setProgress, setIsSending);
-      } else {
-        alert('Failed to start job: ' + (data.error || 'Unknown Error'));
-        setIsSending(false);
-      }
-    } catch (err) {
-      alert('Error reaching server: ' + err.message);
-      setIsSending(false);
-    }
+      if (res.ok && data.jobId) { pollStatus(data.jobId, setProgress, setIsSending); }
+      else { alert('Failed to start job: ' + (data.error || 'Unknown Error')); setIsSending(false); }
+    } catch (err) { alert('Error reaching server: ' + err.message); setIsSending(false); }
   };
 
   // ── Feedback handlers ─────────────────────────────────────────
@@ -107,66 +95,69 @@ function App() {
     const file = e.target.files[0];
     if (file) {
       Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          setFbRecipients(results.data);
-          setFbProgress(null);
-          setFbSendingGroup(null);
-          setFbActiveTab('fb-send');
-        },
+        header: true, skipEmptyLines: true,
+        complete: (r) => { setFbRecipients(r.data); setFbProgress(null); setFbSendingGroup(null); setFbActiveTab('fb-send'); },
       });
     }
   };
 
   const declinedList = fbRecipients.filter(r => r.status?.toLowerCase() === 'declined');
-  const approvedList   = fbRecipients.filter(r => r.status?.toLowerCase() === 'approved');
-  const noAccessList   = fbRecipients.filter(r => !r.status?.trim() || (r.status.toLowerCase() !== 'approved' && r.status.toLowerCase() !== 'declined'));
+  const approvedList = fbRecipients.filter(r => r.status?.toLowerCase() === 'approved');
 
   const sendFeedback = async (group) => {
     if (!config.smtpUser || !config.smtpPass) { alert('Please configure SMTP credentials first.'); setFbActiveTab('fb-smtp'); return; }
-    const list = group === 'declined' ? declinedList : group === 'approved' ? approvedList : noAccessList;
-    if (list.length === 0) { alert(`No ${group} entries found in the uploaded CSV.`); return; }
-
-    let subjectOverride, bodyTemplate;
-    if (group === 'no_access') {
-      subjectOverride = 'No access for the proposal video';
-      bodyTemplate = `Dear {{name}},\n\nWe currently do not have access to your proposal video. Please share the required access so we can complete your evaluation.\n\n---\nRegards,\nRysera STEM\nFor further details: 0787720767`;
-    } else {
-      subjectOverride = fbSubject;
-      const label = group === 'declined' ? 'DECLINED' : 'APPROVED';
-      bodyTemplate = `${label}\n\nDear {{name}},\n\nRysera STEM AI course final evaluation is here for your submitted proposal.\n\nScore: {{score}}\n\n{{feedback}}\n\n---\nRegards,\nRysera STEM\nFor further details: 0787720767`;
-    }
-
+    const list = group === 'declined' ? declinedList : approvedList;
+    if (list.length === 0) { alert(`No ${group} proposals found in the uploaded CSV.`); return; }
+    const label        = group === 'declined' ? 'DECLINED' : 'APPROVED';
+    const bodyTemplate = `${label}\n\nDear {{name}},\n\nRysera STEM AI course final evaluation is here for your submitted proposal.\n\nScore: {{score}}\n\n{{feedback}}\n\n---\nRegards,\nRysera STEM\nFor further details: 0787720767`;
     setFbSendingGroup(group);
     setFbIsSending(true);
     setFbProgress({ current: 0, total: list.length, results: [], group });
-
     const formData = new FormData();
     formData.append('smtpUser', config.smtpUser);
     formData.append('smtpPass', config.smtpPass);
-    formData.append('subjectTemplate', subjectOverride);
+    formData.append('subjectTemplate', fbSubject);
     formData.append('bodyTemplate', bodyTemplate);
     formData.append('recipients', JSON.stringify(list));
-
     try {
-      const res = await fetch(`${API_BASE}/send`, { method: 'POST', body: formData });
+      const res  = await fetch(`${API_BASE}/send`, { method: 'POST', body: formData });
       const data = await res.json();
-      if (res.ok && data.jobId) {
-        pollStatus(data.jobId, setFbProgress, setFbIsSending);
-      } else {
-        alert('Failed to start job: ' + (data.error || 'Unknown Error'));
-        setFbIsSending(false);
-        setFbSendingGroup(null);
-      }
-    } catch (err) {
-      alert('Error reaching server: ' + err.message);
-      setFbIsSending(false);
-      setFbSendingGroup(null);
+      if (res.ok && data.jobId) { pollStatus(data.jobId, setFbProgress, setFbIsSending); }
+      else { alert('Failed to start job: ' + (data.error || 'Unknown Error')); setFbIsSending(false); setFbSendingGroup(null); }
+    } catch (err) { alert('Error reaching server: ' + err.message); setFbIsSending(false); setFbSendingGroup(null); }
+  };
+
+  // ── No Access handlers ────────────────────────────────────────
+  const handleNaCsvUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      Papa.parse(file, {
+        header: true, skipEmptyLines: true,
+        complete: (r) => { setNaRecipients(r.data.filter(row => row.name && row.email)); setNaProgress(null); },
+      });
     }
   };
 
-  // ── Shared SMTP form (used in both modes) ─────────────────────
+  const sendNoAccess = async () => {
+    if (!config.smtpUser || !config.smtpPass) { alert('Please configure SMTP credentials first.'); setFbActiveTab('fb-smtp'); return; }
+    if (naRecipients.length === 0) { alert('Please upload a No Access CSV first.'); return; }
+    setNaIsSending(true);
+    setNaProgress({ current: 0, total: naRecipients.length, results: [] });
+    const formData = new FormData();
+    formData.append('smtpUser', config.smtpUser);
+    formData.append('smtpPass', config.smtpPass);
+    formData.append('subjectTemplate', 'No access for the proposal video');
+    formData.append('bodyTemplate', `Dear {{name}},\n\nWe currently do not have access to your proposal video. Please share the required access so we can complete your evaluation.\n\n---\nRegards,\nRysera STEM\nFor further details: 0787720767`);
+    formData.append('recipients', JSON.stringify(naRecipients));
+    try {
+      const res  = await fetch(`${API_BASE}/send`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (res.ok && data.jobId) { pollStatus(data.jobId, setNaProgress, setNaIsSending); }
+      else { alert('Failed to start job: ' + (data.error || 'Unknown Error')); setNaIsSending(false); }
+    } catch (err) { alert('Error reaching server: ' + err.message); setNaIsSending(false); }
+  };
+
+  // ── Shared SMTP form ──────────────────────────────────────────
   const SmtpForm = () => (
     <div className="animate-fade-in">
       <h2 className="mb-4">SMTP Configuration</h2>
@@ -217,7 +208,12 @@ function App() {
           )}
           {mode === 'feedback' && !fbIsSending && fbProgress?.status === 'completed' && (
             <span className="badge badge-success mr-4">
-              {fbProgress.group === 'declined' ? 'Declined' : fbProgress.group === 'approved' ? 'Approved' : 'No Access'} batch done ({fbProgress.results.filter(r => r.status === 'success').length}/{fbProgress.total})
+              {fbProgress.group === 'declined' ? 'Declined' : 'Approved'} batch done ({fbProgress.results.filter(r => r.status === 'success').length}/{fbProgress.total})
+            </span>
+          )}
+          {mode === 'feedback' && !naIsSending && naProgress?.status === 'completed' && (
+            <span className="badge badge-success mr-4" style={{ background: 'rgba(234,179,8,0.2)', color: '#facc15' }}>
+              No Access batch done ({naProgress.results.filter(r => r.status === 'success').length}/{naProgress.total})
             </span>
           )}
         </div>
@@ -229,18 +225,10 @@ function App() {
 
           {/* Mode switcher */}
           <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', background: 'rgba(0,0,0,0.25)', padding: '4px', borderRadius: '8px' }}>
-            <button
-              className={`btn ${mode === 'certificate' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ flex: 1, fontSize: '0.78rem', padding: '7px 4px', justifyContent: 'center' }}
-              onClick={() => setMode('certificate')}
-            >
+            <button className={`btn ${mode === 'certificate' ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1, fontSize: '0.78rem', padding: '7px 4px', justifyContent: 'center' }} onClick={() => setMode('certificate')}>
               <FileText size={14} /> Certificate
             </button>
-            <button
-              className={`btn ${mode === 'feedback' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ flex: 1, fontSize: '0.78rem', padding: '7px 4px', justifyContent: 'center' }}
-              onClick={() => setMode('feedback')}
-            >
+            <button className={`btn ${mode === 'feedback' ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1, fontSize: '0.78rem', padding: '7px 4px', justifyContent: 'center' }} onClick={() => setMode('feedback')}>
               <MessageSquare size={14} /> Feedback
             </button>
           </div>
@@ -248,9 +236,9 @@ function App() {
           {/* Certificate tabs */}
           {mode === 'certificate' && (
             <>
-              <button className={`btn ${activeTab === 'config' ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setActiveTab('config')}><Settings size={18} /> SMTP Config</button>
-              <button className={`btn ${activeTab === 'recipients' ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setActiveTab('recipients')}><Users size={18} /> Recipients ({recipients.length})</button>
-              <button className={`btn ${activeTab === 'template' ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setActiveTab('template')}><FileText size={18} /> Template</button>
+              <button className={`btn ${activeTab === 'config'      ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setActiveTab('config')}><Settings size={18} /> SMTP Config</button>
+              <button className={`btn ${activeTab === 'recipients'  ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setActiveTab('recipients')}><Users size={18} /> Recipients ({recipients.length})</button>
+              <button className={`btn ${activeTab === 'template'    ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setActiveTab('template')}><FileText size={18} /> Template</button>
               <button className={`btn ${activeTab === 'attachments' ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setActiveTab('attachments')}><Upload size={18} /> Attachments ({attachments.length})</button>
             </>
           )}
@@ -259,8 +247,19 @@ function App() {
           {mode === 'feedback' && (
             <>
               <button className={`btn ${fbActiveTab === 'fb-smtp' ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setFbActiveTab('fb-smtp')}><Settings size={18} /> SMTP Config</button>
-              <button className={`btn ${fbActiveTab === 'fb-csv' ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setFbActiveTab('fb-csv')}><Upload size={18} /> Feedback List ({fbRecipients.length})</button>
+              <button className={`btn ${fbActiveTab === 'fb-csv'  ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setFbActiveTab('fb-csv')}><Upload size={18} /> Feedback List ({fbRecipients.length})</button>
               <button className={`btn ${fbActiveTab === 'fb-send' ? 'btn-primary' : 'btn-secondary'}`} style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setFbActiveTab('fb-send')}><Send size={18} /> Send Feedback</button>
+
+              {/* Divider */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', margin: '4px 0' }} />
+
+              <button
+                className={`btn ${fbActiveTab === 'fb-na' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ width: '100%', justifyContent: 'flex-start', borderColor: fbActiveTab === 'fb-na' ? '' : 'rgba(234,179,8,0.3)', color: fbActiveTab === 'fb-na' ? '' : '#facc15' }}
+                onClick={() => setFbActiveTab('fb-na')}
+              >
+                <EyeOff size={18} /> No Access ({naRecipients.length})
+              </button>
             </>
           )}
         </div>
@@ -280,9 +279,7 @@ function App() {
                     <h4 style={{ marginBottom: '8px', color: 'var(--accent)' }}>How to format your CSV file:</h4>
                     <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                       Your CSV must have two columns: <strong>name</strong> and <strong>email</strong> (lowercase).<br />
-                      <em>Example:</em><br />
-                      name,email<br />
-                      Alice Smith,alice@test.com
+                      <em>Example:</em><br /> name,email<br /> Alice Smith,alice@test.com
                     </p>
                   </div>
                   <div className="dropzone mb-4" onClick={() => csvInputRef.current.click()}>
@@ -293,12 +290,10 @@ function App() {
                   {recipients.length > 0 && (
                     <div style={{ maxHeight: '300px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px' }}>
                       <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Name</th>
-                            <th style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Email</th>
-                          </tr>
-                        </thead>
+                        <thead><tr>
+                          <th style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Name</th>
+                          <th style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Email</th>
+                        </tr></thead>
                         <tbody>
                           {recipients.slice(0, 10).map((r, i) => (
                             <tr key={i}>
@@ -380,8 +375,8 @@ function App() {
                       <strong>score</strong> is the numeric mark awarded (e.g. 78).<br /><br />
                       <em>Example:</em><br />
                       name,email,status,score,feedback<br />
-                      Alice Smith,alice@test.com,approved,85,Great work! Your proposal is well-structured.<br />
-                      Bob Jones,bob@test.com,declined,42,Missing methodology section. Please revise.
+                      Alice Smith,alice@test.com,approved,85,Great work!<br />
+                      Bob Jones,bob@test.com,declined,42,Missing methodology.
                     </p>
                   </div>
                   <div className="dropzone mb-4" onClick={() => fbCsvInputRef.current.click()}>
@@ -392,13 +387,11 @@ function App() {
                   {fbRecipients.length > 0 && (
                     <div style={{ maxHeight: '300px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px' }}>
                       <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                        <thead>
-                          <tr>
-                            {['Name', 'Email', 'Status', 'Score', 'Feedback'].map(h => (
-                              <th key={h} style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', whiteSpace: 'nowrap' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
+                        <thead><tr>
+                          {['Name', 'Email', 'Status', 'Score', 'Feedback'].map(h => (
+                            <th key={h} style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr></thead>
                         <tbody>
                           {fbRecipients.slice(0, 10).map((r, i) => (
                             <tr key={i}>
@@ -409,9 +402,7 @@ function App() {
                                   padding: '2px 8px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: 600,
                                   background: r.status?.toLowerCase() === 'approved' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
                                   color: r.status?.toLowerCase() === 'approved' ? '#4ade80' : '#f87171',
-                                }}>
-                                  {r.status || 'N/A'}
-                                </span>
+                                }}>{r.status || 'N/A'}</span>
                               </td>
                               <td style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', textAlign: 'center', fontWeight: 600, color: 'var(--accent)' }}>{r.score ?? 'N/A'}</td>
                               <td style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.feedback || ''}</td>
@@ -428,7 +419,6 @@ function App() {
               {fbActiveTab === 'fb-send' && (
                 <div className="animate-fade-in">
                   <h2 className="mb-4">Send Feedback</h2>
-
                   {fbRecipients.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
                       <Upload size={40} style={{ marginBottom: '12px', opacity: 0.4 }} />
@@ -436,28 +426,15 @@ function App() {
                     </div>
                   ) : (
                     <>
-                      {/* Subject line */}
                       <div className="form-group" style={{ marginBottom: '24px' }}>
                         <label className="form-label">Email Subject</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={fbSubject}
-                          onChange={e => setFbSubject(e.target.value)}
-                          placeholder="Proposal Review: {{name}}"
-                        />
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                          Use <code>{'{{name}}'}</code> to personalise the subject line.
-                        </p>
+                        <input type="text" className="form-input" value={fbSubject} onChange={e => setFbSubject(e.target.value)} placeholder="Proposal Review: {{name}}" />
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '6px' }}>Use <code>{'{{name}}'}</code> to personalise the subject line.</p>
                       </div>
-
-                      {/* Info box about email body */}
                       <div style={{ background: 'rgba(99,102,241,0.1)', padding: '14px', borderRadius: '8px', borderLeft: '4px solid var(--accent)', marginBottom: '24px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                        The email body is auto-generated. It will start with <strong style={{ color: '#f87171' }}>DECLINED</strong> or <strong style={{ color: '#4ade80' }}>APPROVED</strong> followed by the student's name and your feedback from the CSV.
+                        The email body is auto-generated. It will start with <strong style={{ color: '#f87171' }}>DECLINED</strong> or <strong style={{ color: '#4ade80' }}>APPROVED</strong> followed by the student's name, score, and feedback.
                       </div>
-
-                      {/* Two action cards */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
 
                         {/* Declined card */}
                         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -466,7 +443,7 @@ function App() {
                             <span style={{ fontWeight: 600, color: '#f87171', fontSize: '1rem' }}>Declined</span>
                           </div>
                           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                            {declinedList.length} student{declinedList.length !== 1 ? 's' : ''} will receive a declined notification with your feedback.
+                            {declinedList.length} student{declinedList.length !== 1 ? 's' : ''} will receive a declined notification with feedback.
                           </p>
                           {fbProgress?.group === 'declined' && fbProgress.status === 'completed' && (
                             <p style={{ fontSize: '0.82rem', color: '#4ade80', margin: 0 }}>
@@ -474,16 +451,8 @@ function App() {
                               Sent {fbProgress.results.filter(r => r.status === 'success').length}/{fbProgress.total}
                             </p>
                           )}
-                          <button
-                            className="btn"
-                            style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', marginTop: 'auto' }}
-                            onClick={() => sendFeedback('declined')}
-                            disabled={fbIsSending || declinedList.length === 0}
-                          >
-                            {fbIsSending && fbSendingGroup === 'declined'
-                              ? <><Loader2 className="spin" size={16} /> Sending...</>
-                              : <><Send size={16} /> Send Declined ({declinedList.length})</>
-                            }
+                          <button className="btn" style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', marginTop: 'auto' }} onClick={() => sendFeedback('declined')} disabled={fbIsSending || declinedList.length === 0}>
+                            {fbIsSending && fbSendingGroup === 'declined' ? <><Loader2 className="spin" size={16} /> Sending...</> : <><Send size={16} /> Send Declined ({declinedList.length})</>}
                           </button>
                         </div>
 
@@ -494,7 +463,7 @@ function App() {
                             <span style={{ fontWeight: 600, color: '#4ade80', fontSize: '1rem' }}>Approved</span>
                           </div>
                           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                            {approvedList.length} student{approvedList.length !== 1 ? 's' : ''} will receive an approved notification with your feedback.
+                            {approvedList.length} student{approvedList.length !== 1 ? 's' : ''} will receive an approved notification with feedback.
                           </p>
                           {fbProgress?.group === 'approved' && fbProgress.status === 'completed' && (
                             <p style={{ fontSize: '0.82rem', color: '#4ade80', margin: 0 }}>
@@ -502,50 +471,79 @@ function App() {
                               Sent {fbProgress.results.filter(r => r.status === 'success').length}/{fbProgress.total}
                             </p>
                           )}
-                          <button
-                            className="btn"
-                            style={{ background: 'rgba(34,197,94,0.2)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.4)', marginTop: 'auto' }}
-                            onClick={() => sendFeedback('approved')}
-                            disabled={fbIsSending || approvedList.length === 0}
-                          >
-                            {fbIsSending && fbSendingGroup === 'approved'
-                              ? <><Loader2 className="spin" size={16} /> Sending...</>
-                              : <><Send size={16} /> Send Approved ({approvedList.length})</>
-                            }
-                          </button>
-                        </div>
-
-                        {/* No Access card */}
-                        <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Upload size={20} color="#facc15" />
-                            <span style={{ fontWeight: 600, color: '#facc15', fontSize: '1rem' }}>No Access</span>
-                          </div>
-                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                            {noAccessList.length} student{noAccessList.length !== 1 ? 's' : ''} will receive a reminder to share access to their proposal video.
-                          </p>
-                          <p style={{ fontSize: '0.78rem', color: 'rgba(250,204,21,0.7)', margin: 0 }}>
-                            Subject: <em>No access for the proposal video</em>
-                          </p>
-                          {fbProgress?.group === 'no_access' && fbProgress.status === 'completed' && (
-                            <p style={{ fontSize: '0.82rem', color: '#4ade80', margin: 0 }}>
-                              <CheckCircle size={14} style={{ display: 'inline', marginRight: 4 }} />
-                              Sent {fbProgress.results.filter(r => r.status === 'success').length}/{fbProgress.total}
-                            </p>
-                          )}
-                          <button
-                            className="btn"
-                            style={{ background: 'rgba(234,179,8,0.2)', color: '#facc15', border: '1px solid rgba(234,179,8,0.4)', marginTop: 'auto' }}
-                            onClick={() => sendFeedback('no_access')}
-                            disabled={fbIsSending || noAccessList.length === 0}
-                          >
-                            {fbIsSending && fbSendingGroup === 'no_access'
-                              ? <><Loader2 className="spin" size={16} /> Sending...</>
-                              : <><Send size={16} /> Send No Access ({noAccessList.length})</>
-                            }
+                          <button className="btn" style={{ background: 'rgba(34,197,94,0.2)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.4)', marginTop: 'auto' }} onClick={() => sendFeedback('approved')} disabled={fbIsSending || approvedList.length === 0}>
+                            {fbIsSending && fbSendingGroup === 'approved' ? <><Loader2 className="spin" size={16} /> Sending...</> : <><Send size={16} /> Send Approved ({approvedList.length})</>}
                           </button>
                         </div>
                       </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ── No Access tab ── */}
+              {fbActiveTab === 'fb-na' && (
+                <div className="animate-fade-in">
+                  <h2 className="mb-4" style={{ color: '#facc15' }}>No Access — Proposal Video</h2>
+                  <div style={{ background: 'rgba(234,179,8,0.08)', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #facc15', marginBottom: '20px' }}>
+                    <h4 style={{ marginBottom: '8px', color: '#facc15' }}>Who is this for?</h4>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                      Students who submitted their proposal but <strong>did not share access</strong> to their Google Drive video.<br /><br />
+                      Upload a CSV with just <strong>name</strong> and <strong>email</strong> columns. A reminder email will be sent automatically asking them to share access.<br /><br />
+                      <em>Example:</em><br />
+                      name,email<br />
+                      Kasun Savithra,kasunsavithra9@gmail.com
+                    </p>
+                    <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(234,179,8,0.1)', borderRadius: '6px', fontSize: '0.85rem', color: 'rgba(250,204,21,0.8)' }}>
+                      <strong>Fixed subject:</strong> No access for the proposal video<br />
+                      <strong>Fixed body:</strong> Dear {'{{name}}'}, We currently do not have access to your proposal video. Please share the required access so we can complete your evaluation.
+                    </div>
+                  </div>
+
+                  <div className="dropzone mb-4" onClick={() => naCsvInputRef.current.click()}>
+                    <EyeOff size={32} color="#facc15" style={{ marginBottom: 10, opacity: 0.7 }} />
+                    <p>Click to upload No Access CSV</p>
+                    <input type="file" ref={naCsvInputRef} accept=".csv" style={{ display: 'none' }} onChange={handleNaCsvUpload} />
+                  </div>
+
+                  {naRecipients.length > 0 && (
+                    <>
+                      <div style={{ maxHeight: '240px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px', marginBottom: '20px' }}>
+                        <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                          <thead><tr>
+                            <th style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Name</th>
+                            <th style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Email</th>
+                          </tr></thead>
+                          <tbody>
+                            {naRecipients.slice(0, 10).map((r, i) => (
+                              <tr key={i}>
+                                <td style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>{r.name}</td>
+                                <td style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>{r.email}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {naRecipients.length > 10 && <p className="text-center mt-4 text-secondary">...and {naRecipients.length - 10} more rows.</p>}
+                      </div>
+
+                      {naProgress?.status === 'completed' && (
+                        <p style={{ fontSize: '0.85rem', color: '#4ade80', marginBottom: '16px' }}>
+                          <CheckCircle size={15} style={{ display: 'inline', marginRight: 4 }} />
+                          Sent {naProgress.results.filter(r => r.status === 'success').length}/{naProgress.total} reminder emails successfully.
+                        </p>
+                      )}
+
+                      <button
+                        className="btn"
+                        style={{ width: '100%', background: 'rgba(234,179,8,0.2)', color: '#facc15', border: '1px solid rgba(234,179,8,0.5)', padding: '12px', fontSize: '1rem' }}
+                        onClick={sendNoAccess}
+                        disabled={naIsSending}
+                      >
+                        {naIsSending
+                          ? <><Loader2 className="spin" size={18} /> Sending {naProgress?.current ?? 0} / {naRecipients.length}...</>
+                          : <><Send size={18} /> Send No Access Reminders ({naRecipients.length})</>
+                        }
+                      </button>
                     </>
                   )}
                 </div>
@@ -581,21 +579,38 @@ function App() {
       {mode === 'feedback' && fbIsSending && fbProgress && (
         <div className="glass-panel mt-8 animate-fade-in delay-200 opacity-0">
           <div className="flex justify-between items-center mb-4">
-            <h3 style={{ color: fbProgress.group === 'declined' ? '#f87171' : fbProgress.group === 'approved' ? '#4ade80' : '#facc15' }}>
-              Sending {fbProgress.group === 'declined' ? 'Declined' : fbProgress.group === 'approved' ? 'Approved' : 'No Access'} Emails...
+            <h3 style={{ color: fbProgress.group === 'declined' ? '#f87171' : '#4ade80' }}>
+              Sending {fbProgress.group === 'declined' ? 'Declined' : 'Approved'} Feedback...
             </h3>
             <span>{fbProgress.current} / {fbProgress.total}</span>
           </div>
           <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-            <div style={{
-              width: `${(fbProgress.current / fbProgress.total) * 100}%`,
-              height: '100%',
-              background: fbProgress.group === 'declined' ? 'linear-gradient(90deg,#ef4444,#f87171)' : fbProgress.group === 'approved' ? 'linear-gradient(90deg,#16a34a,#4ade80)' : 'linear-gradient(90deg,#ca8a04,#facc15)',
-              transition: 'width 0.3s ease'
-            }} />
+            <div style={{ width: `${(fbProgress.current / fbProgress.total) * 100}%`, height: '100%', background: fbProgress.group === 'declined' ? 'linear-gradient(90deg,#ef4444,#f87171)' : 'linear-gradient(90deg,#16a34a,#4ade80)', transition: 'width 0.3s ease' }} />
           </div>
           <div className="mt-4" style={{ maxHeight: '150px', overflowY: 'auto' }}>
             {fbProgress.results.map((r, i) => (
+              <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', fontSize: '0.9rem' }}>
+                {r.status === 'success' ? <CheckCircle size={16} color="var(--success)" /> : <XCircle size={16} color="var(--danger)" />}
+                <span>{r.email}</span>
+                {r.status === 'error' && <span style={{ color: 'var(--danger)', marginLeft: 'auto' }}>{r.error}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Progress tracker (no access) ── */}
+      {mode === 'feedback' && naIsSending && naProgress && (
+        <div className="glass-panel mt-8 animate-fade-in delay-200 opacity-0">
+          <div className="flex justify-between items-center mb-4">
+            <h3 style={{ color: '#facc15' }}>Sending No Access Reminders...</h3>
+            <span>{naProgress.current} / {naProgress.total}</span>
+          </div>
+          <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: `${(naProgress.current / naProgress.total) * 100}%`, height: '100%', background: 'linear-gradient(90deg,#ca8a04,#facc15)', transition: 'width 0.3s ease' }} />
+          </div>
+          <div className="mt-4" style={{ maxHeight: '150px', overflowY: 'auto' }}>
+            {naProgress.results.map((r, i) => (
               <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', fontSize: '0.9rem' }}>
                 {r.status === 'success' ? <CheckCircle size={16} color="var(--success)" /> : <XCircle size={16} color="var(--danger)" />}
                 <span>{r.email}</span>
