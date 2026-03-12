@@ -120,15 +120,23 @@ function App() {
   };
 
   const declinedList = fbRecipients.filter(r => r.status?.toLowerCase() === 'declined');
-  const approvedList = fbRecipients.filter(r => r.status?.toLowerCase() === 'approved');
+  const approvedList   = fbRecipients.filter(r => r.status?.toLowerCase() === 'approved');
+  const noAccessList   = fbRecipients.filter(r => !r.status?.trim() || (r.status.toLowerCase() !== 'approved' && r.status.toLowerCase() !== 'declined'));
 
   const sendFeedback = async (group) => {
     if (!config.smtpUser || !config.smtpPass) { alert('Please configure SMTP credentials first.'); setFbActiveTab('fb-smtp'); return; }
-    const list = group === 'declined' ? declinedList : approvedList;
-    if (list.length === 0) { alert(`No ${group} proposals found in the uploaded CSV.`); return; }
+    const list = group === 'declined' ? declinedList : group === 'approved' ? approvedList : noAccessList;
+    if (list.length === 0) { alert(`No ${group} entries found in the uploaded CSV.`); return; }
 
-    const label = group === 'declined' ? 'DECLINED' : 'APPROVED';
-    const bodyTemplate = `${label}\n\nDear {{name}},\n\nRysera STEM AI course final evaluation is here for your submitted proposal.\n\nScore: {{score}}\n\n{{feedback}}\n\n---\nRegards,\nRysera STEM\nFor further details: 0787720767`;
+    let subjectOverride, bodyTemplate;
+    if (group === 'no_access') {
+      subjectOverride = 'No access for the proposal video';
+      bodyTemplate = `Dear {{name}},\n\nWe currently do not have access to your proposal video. Please share the required access so we can complete your evaluation.\n\n---\nRegards,\nRysera STEM\nFor further details: 0787720767`;
+    } else {
+      subjectOverride = fbSubject;
+      const label = group === 'declined' ? 'DECLINED' : 'APPROVED';
+      bodyTemplate = `${label}\n\nDear {{name}},\n\nRysera STEM AI course final evaluation is here for your submitted proposal.\n\nScore: {{score}}\n\n{{feedback}}\n\n---\nRegards,\nRysera STEM\nFor further details: 0787720767`;
+    }
 
     setFbSendingGroup(group);
     setFbIsSending(true);
@@ -137,7 +145,7 @@ function App() {
     const formData = new FormData();
     formData.append('smtpUser', config.smtpUser);
     formData.append('smtpPass', config.smtpPass);
-    formData.append('subjectTemplate', fbSubject);
+    formData.append('subjectTemplate', subjectOverride);
     formData.append('bodyTemplate', bodyTemplate);
     formData.append('recipients', JSON.stringify(list));
 
@@ -209,7 +217,7 @@ function App() {
           )}
           {mode === 'feedback' && !fbIsSending && fbProgress?.status === 'completed' && (
             <span className="badge badge-success mr-4">
-              {fbProgress.group === 'declined' ? 'Declined' : 'Approved'} batch done ({fbProgress.results.filter(r => r.status === 'success').length}/{fbProgress.total})
+              {fbProgress.group === 'declined' ? 'Declined' : fbProgress.group === 'approved' ? 'Approved' : 'No Access'} batch done ({fbProgress.results.filter(r => r.status === 'success').length}/{fbProgress.total})
             </span>
           )}
         </div>
@@ -449,7 +457,7 @@ function App() {
                       </div>
 
                       {/* Two action cards */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
 
                         {/* Declined card */}
                         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -506,6 +514,37 @@ function App() {
                             }
                           </button>
                         </div>
+
+                        {/* No Access card */}
+                        <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Upload size={20} color="#facc15" />
+                            <span style={{ fontWeight: 600, color: '#facc15', fontSize: '1rem' }}>No Access</span>
+                          </div>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                            {noAccessList.length} student{noAccessList.length !== 1 ? 's' : ''} will receive a reminder to share access to their proposal video.
+                          </p>
+                          <p style={{ fontSize: '0.78rem', color: 'rgba(250,204,21,0.7)', margin: 0 }}>
+                            Subject: <em>No access for the proposal video</em>
+                          </p>
+                          {fbProgress?.group === 'no_access' && fbProgress.status === 'completed' && (
+                            <p style={{ fontSize: '0.82rem', color: '#4ade80', margin: 0 }}>
+                              <CheckCircle size={14} style={{ display: 'inline', marginRight: 4 }} />
+                              Sent {fbProgress.results.filter(r => r.status === 'success').length}/{fbProgress.total}
+                            </p>
+                          )}
+                          <button
+                            className="btn"
+                            style={{ background: 'rgba(234,179,8,0.2)', color: '#facc15', border: '1px solid rgba(234,179,8,0.4)', marginTop: 'auto' }}
+                            onClick={() => sendFeedback('no_access')}
+                            disabled={fbIsSending || noAccessList.length === 0}
+                          >
+                            {fbIsSending && fbSendingGroup === 'no_access'
+                              ? <><Loader2 className="spin" size={16} /> Sending...</>
+                              : <><Send size={16} /> Send No Access ({noAccessList.length})</>
+                            }
+                          </button>
+                        </div>
                       </div>
                     </>
                   )}
@@ -542,8 +581,8 @@ function App() {
       {mode === 'feedback' && fbIsSending && fbProgress && (
         <div className="glass-panel mt-8 animate-fade-in delay-200 opacity-0">
           <div className="flex justify-between items-center mb-4">
-            <h3 style={{ color: fbProgress.group === 'declined' ? '#f87171' : '#4ade80' }}>
-              Sending {fbProgress.group === 'declined' ? 'Declined' : 'Approved'} Feedback...
+            <h3 style={{ color: fbProgress.group === 'declined' ? '#f87171' : fbProgress.group === 'approved' ? '#4ade80' : '#facc15' }}>
+              Sending {fbProgress.group === 'declined' ? 'Declined' : fbProgress.group === 'approved' ? 'Approved' : 'No Access'} Emails...
             </h3>
             <span>{fbProgress.current} / {fbProgress.total}</span>
           </div>
@@ -551,7 +590,7 @@ function App() {
             <div style={{
               width: `${(fbProgress.current / fbProgress.total) * 100}%`,
               height: '100%',
-              background: fbProgress.group === 'declined' ? 'linear-gradient(90deg,#ef4444,#f87171)' : 'linear-gradient(90deg,#16a34a,#4ade80)',
+              background: fbProgress.group === 'declined' ? 'linear-gradient(90deg,#ef4444,#f87171)' : fbProgress.group === 'approved' ? 'linear-gradient(90deg,#16a34a,#4ade80)' : 'linear-gradient(90deg,#ca8a04,#facc15)',
               transition: 'width 0.3s ease'
             }} />
           </div>
